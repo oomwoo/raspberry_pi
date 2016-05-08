@@ -16,7 +16,12 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License <http://www.gnu.org/licenses/> for details.
 
-import serial, time, sys, getopt
+import serial, time, sys, getopt, picamera
+
+debug = False
+fps = 5
+w = 160
+h = 120
 
 def usage():
     print "python connect_to_vex_cortex.py"
@@ -25,16 +30,21 @@ def usage():
     print "  -d: display received commands for debug"
     print "  -h: print usage"
 
-# Raspberry Pi 2 Model B
-port = serial.Serial("/dev/ttyAMA0", baudrate=115200, timeout=3.0)
-
-# TODO send something useful
-# cmd = "s60\n"
+def start_capture()
+    if debug:
+        print >> sys.stderr, "Starting capture"
+    # TODO
+    log_file = open(log_file_name, "a")
+    camera.start_recording("video.h264", quality=23)
+    
+def end_capture()
+    if debug:
+        print >> sys.stderr, "Stopping capture"
+    log_file.close()
 
 # TODO don't overwrite log - append or increment log name
 
 opts, args = getopt.getopt(sys.argv[1:], "ldh")
-debug = False
 log_file_name = "log.txt"
 
 for opt, arg in opts:
@@ -46,7 +56,17 @@ for opt, arg in opts:
         usage()
         sys.exit(2)
 
-log_file = open(log_file_name, "a")
+# Raspberry Pi 2 Model B
+port = serial.Serial("/dev/ttyAMA0", baudrate=115200, timeout=3.0)
+
+camera = picamera.PiCamera()
+camera.resolution = (w, h)
+camera.framerate = fps
+camera.hflip = True
+camera.vfilp = True
+
+# TODO send something useful
+# cmd = "s60\n"
 
 while True:
     # port.write(cmd)
@@ -85,8 +105,8 @@ while True:
             # TODO L02: transfer control to robot (automomous control)
             print >> sys.stderr, "Transferring control to robot"
         elif val == 3:
-            # TODO L03: start video capture
-            print >> sys.stderr, "Starting video capture"
+            # L03: start recording
+            start_capture()
         elif val == 4:
             # TODO L04: stop video capture
             print >> sys.stderr, "Stopping video capture"
@@ -101,4 +121,3 @@ while True:
             # L00 and otherwise: none (no command)
             print >> sys.stderr, "Unsupported link command or no command"
     
-log_file.close()
