@@ -16,43 +16,79 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License <http://www.gnu.org/licenses/> for details.
 
-import serial, time, sys, getopt, picamera
+import serial, time, sys, getopt, picamera, glob, re
 
 debug = False
 fps = 5
 w = 160
 h = 120
+quality = 23
+file_name_prefix = "rec"
+hor_flip = True
+ver_flip = True
+video_file_ext = ".h264"
+log_file_ext = ".txt"
+log_file = []
 
 def usage():
     print "python connect_to_vex_cortex.py"
-    print "  Communicate with VEX Cortex 2.0 over UART"
-    print "  -l log_file_name.txt: specify log filename, default log.txt"
+    print "  Get Raspberry Pi talk to VEX Cortex 2.0 over UART"
+    print "  -p rec: log and video file name prefix"
     print "  -d: display received commands for debug"
-    print "  -w: video width, default 160
-    print "  -h: video height, default 120
-    print "  -f: video FPS, default 5
-    print "  -q: quality to record video, 1..40, default 23"
+    print "  -w 160: video width"
+    print "  -h 120: video height"
+    print "  -f 5: video FPS, default 5"
+    print "  -q 23: quality to record video, 1..40"
+    print "  -m: horizontal mirror"
+    print "  -v: vertical mirror"
     print "  -?: print usage"
 
-def start_capture()
-    if debug:
-        print >> sys.stderr, "Starting capture"
-    # TODO
-    if Not(camera.recording):
-        camera.start_recording("video.h264", quality=23)
+def get_file_max_idx(prefix, file_ext):
+    rs = "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]"
+    file_names = glob.glob(prefix + rs + file_ext)
+    if not file_names:
+        return 0
+    numbers = [int((re.findall('\d+', s))[0]) for s in file_names]
+    return max(numbers) + 1
+
+def start_recording():
+    global log_file
+    if not(camera.recording):
+        n1 = get_file_max_idx(file_name_prefix, video_file_ext)
+        n2 = get_file_max_idx(file_name_prefix, log_file_ext)
+        n = max(n1, n2)
+        s = str(n).zfill(8)
+        video_file_name = file_name_prefix + s + video_file_ext
+        log_file_name = file_name_prefix + s + log_file_ext
+        camera.start_recording(video_file_name, quality=quality)
         log_file = open(log_file_name, "w")
+
+        debug_print("Recording to " + log_file_name)
+        return True
+    else:
+        return False
+
     
-def end_capture()
-    if debug:
-        print >> sys.stderr, "Stopping capture"
+def stop_recording():
+    global log_file
     if camera.recording:
+        debug_print("Stopping recording")
         camera.stop_recording()
         log_file.close()
 
-# TODO don't overwrite log - append or increment log name
+def write_to_log(txt):
+    if camera.recording:
+        # Prepend timestamp
+        s = repr(time.time()) + " " + txt
+        # Save all commands into log file
+        debug_print(s)
+        log_file.write(s)
 
-opts, args = getopt.getopt(sys.argv[1:], "ldhwhfq?")
-log_file_name = "log.txt"
+def debug_print(s):
+    if debug:
+        print(s)
+
+opts, args = getopt.getopt(sys.argv[1:], "pldhwhfq?")
 
 for opt, arg in opts:
     if opt == '-d':
@@ -66,7 +102,13 @@ for opt, arg in opts:
     elif opt == '-f':
         fps = int(arg)
     elif opt == '-q':
-        q = int(arg)
+        quality = int(arg)
+    elif opt == '-p':
+        file_name_prefix = arg
+    elif opt == '-m':
+        hor_flip = Not(hor_flip)
+    elif opt == '-v':
+        ver_flip = Not(ver_flip)
     elif opt == '-?':
         usage()
         sys.exit(2)
@@ -77,8 +119,8 @@ port = serial.Serial("/dev/ttyAMA0", baudrate=115200, timeout=3.0)
 camera = picamera.PiCamera()
 camera.resolution = (w, h)
 camera.framerate = fps
-camera.hflip = True
-camera.vfilp = True
+camera.hflip = hor_flip
+camera.vfilp = ver_flip
 
 # TODO send something useful
 # cmd = "s60\n"
@@ -87,20 +129,13 @@ while True:
     # port.write(cmd)
     # print cmd
     rcv = port.readline()
-    print repr(rcv)
+    # print repr(rcv)
 
     if len(rcv) == 0:
-        print >> sys.stderr, "Timeout receiving command"
+        debug_print("Timeout receiving command")
         continue        
-
-    # Prepend timestamp
-    s = repr(time.time()) + " " + rcv
-
-    # Save all commands into log file
-    log_file.write(s)
-
-    if debug:
-        print repr(rcv)
+    else:
+        write_to_log(rcv)
 
     # Parse link command, if present
     #   If the link control command is present ('Lxx'),
@@ -111,28 +146,33 @@ while True:
         val = int(rcv[1:3], 16)
         if val == 255:
             # LFF: terminate link (this script quits)
-            print >> sys.stderr, "Terminating link"
+            debug_print("Terminating link")
             break
         elif val == 1:
             # TODO L01: transfer control to human (manual control)
-            print >> sys.stderr, "Transferring control to human"
+            debug_print("Transferring control to human")
         elif val == 2:
             # TODO L02: transfer control to robot (automomous control)
-            print >> sys.stderr, "Transferring control to robot"
+            debug_print("Transferring control to robot")
         elif val == 3:
             # L03: start recording
-            start_capture()
+            if start_recording():
+                write_to_log(rcv)
         elif val == 4:
-            # TODO L04: stop video capture
-            print >> sys.stderr, "Stopping video capture"
+            # L04: stop capture
+            stop_recording()
         elif val == 253:
             # TODO LFD: forget last few seconds (when human made a mistake)
-            print >> sys.stderr, "Forgetting a mistake"
+            debug_print("Forgetting a mistake")
         elif val == 254:
             # TODO LFE: terminate training and upload data to server
-            print >> sys.stderr, "Terminating link and uploading data"
+            debug_print("Terminating link and uploading data")
             break
         else:
             # L00 and otherwise: none (no command)
-            print >> sys.stderr, "Unsupported link command or no command"
-    
+            debug_print("Unsupported link command or no command")
+    else:
+        write_to_log(rcv)
+
+stop_recording()
+
