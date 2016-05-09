@@ -28,23 +28,30 @@ def usage():
     print "  Communicate with VEX Cortex 2.0 over UART"
     print "  -l log_file_name.txt: specify log filename, default log.txt"
     print "  -d: display received commands for debug"
-    print "  -h: print usage"
+    print "  -w: video width, default 160
+    print "  -h: video height, default 120
+    print "  -f: video FPS, default 5
+    print "  -q: quality to record video, 1..40, default 23"
+    print "  -?: print usage"
 
 def start_capture()
     if debug:
         print >> sys.stderr, "Starting capture"
     # TODO
-    log_file = open(log_file_name, "a")
-    camera.start_recording("video.h264", quality=23)
+    if Not(camera.recording):
+        camera.start_recording("video.h264", quality=23)
+        log_file = open(log_file_name, "w")
     
 def end_capture()
     if debug:
         print >> sys.stderr, "Stopping capture"
-    log_file.close()
+    if camera.recording:
+        camera.stop_recording()
+        log_file.close()
 
 # TODO don't overwrite log - append or increment log name
 
-opts, args = getopt.getopt(sys.argv[1:], "ldh")
+opts, args = getopt.getopt(sys.argv[1:], "ldhwhfq?")
 log_file_name = "log.txt"
 
 for opt, arg in opts:
@@ -52,7 +59,15 @@ for opt, arg in opts:
         debug = True
     elif opt == '-l':
         log_file_name = arg
+    elif opt == '-w':
+        w = int(arg)
     elif opt == '-h':
+        h = int(arg)
+    elif opt == '-f':
+        fps = int(arg)
+    elif opt == '-q':
+        q = int(arg)
+    elif opt == '-?':
         usage()
         sys.exit(2)
 
