@@ -2,9 +2,9 @@
 # and test transmission
 # This code runs on Raspberry Pi (tested with Raspberry Pi 2 model B)
 # VEX Cortex must be running peer code for the link to operate,
-# see oomwoo/vex at GitHub
+# see https://github.com/oomwoo/vex
 #
-# Copyright (C) 2016 oomwoo
+# Copyright (C) 2016 oomwoo.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3.0 as
