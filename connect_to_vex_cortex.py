@@ -19,10 +19,11 @@
 import serial, time, sys, getopt, picamera, glob, re
 
 debug = False
-fps = 5
-w = 160
-h = 120
+fps = 10
+w = 320
+h = 240
 quality = 23
+bitrate = 0
 file_name_prefix = "rec"
 hor_flip = True
 ver_flip = True
@@ -32,19 +33,20 @@ log_file = []
 
 def usage():
     print "python connect_to_vex_cortex.py"
-    print "  Get Raspberry Pi talk to VEX Cortex 2.0 over UART"
-    print "  -p rec: log and video file name prefix"
+    print "  Raspberry Pi records video, commands from VEX Cortex 2.0"
+    print "  -p rec: file name prefix"
     print "  -d: display received commands for debug"
-    print "  -w 160: video width"
-    print "  -h 120: video height"
-    print "  -f 5: video FPS, default 5"
+    print "  -w 320: video width"
+    print "  -h 240: video height"
+    print "  -f 10: video FPS, 0 for camera default"
     print "  -q 23: quality to record video, 1..40"
+    print "  -b 0: bitrate e.g. 15000000, 0 for unlimited"
     print "  -m: horizontal mirror"
     print "  -v: vertical mirror"
     print "  -?: print usage"
 
 def get_file_max_idx(prefix, file_ext):
-    rs = "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]"
+    rs = "[0-9][0-9][0-9][0-9][0-9]"
     file_names = glob.glob(prefix + rs + file_ext)
     if not file_names:
         return 0
@@ -93,7 +95,7 @@ def debug_print(s):
         print(s)
 
 
-opts, args = getopt.getopt(sys.argv[1:], "pldhwhfq?")
+opts, args = getopt.getopt(sys.argv[1:], "p:l:w:h:f:q:b:?d")
 
 for opt, arg in opts:
     if opt == '-d':
@@ -108,6 +110,8 @@ for opt, arg in opts:
         fps = int(arg)
     elif opt == '-q':
         quality = int(arg)
+    elif opt == '-b':
+        bitrate = int(arg)
     elif opt == '-p':
         file_name_prefix = arg
     elif opt == '-m':
@@ -125,7 +129,8 @@ port = serial.Serial("/dev/ttyAMA0", baudrate=115200, timeout=3.0)
 
 camera = picamera.PiCamera()
 camera.resolution = (w, h)
-camera.framerate = fps
+if fps > 0:
+    camera.framerate = fps
 camera.hflip = hor_flip
 camera.vfilp = ver_flip
 camera.led = False
@@ -183,4 +188,3 @@ while True:
         write_to_log(rcv)
 
 stop_recording()
-
