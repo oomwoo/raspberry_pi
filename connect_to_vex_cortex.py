@@ -62,6 +62,7 @@ def start_recording():
         log_file_name = file_name_prefix + s + log_file_ext
         camera.start_recording(video_file_name, quality=quality)
         log_file = open(log_file_name, "w")
+        camera.led = True
 
         debug_print("Recording to " + log_file_name)
         return True
@@ -75,6 +76,8 @@ def stop_recording():
         debug_print("Stopping recording")
         camera.stop_recording()
         log_file.close()
+        camera.led = False
+
 
 def write_to_log(txt):
     if camera.recording:
@@ -84,9 +87,11 @@ def write_to_log(txt):
         debug_print(s)
         log_file.write(s)
 
+
 def debug_print(s):
     if debug:
         print(s)
+
 
 opts, args = getopt.getopt(sys.argv[1:], "pldhwhfq?")
 
@@ -115,12 +120,15 @@ for opt, arg in opts:
 
 # Raspberry Pi 2 Model B
 port = serial.Serial("/dev/ttyAMA0", baudrate=115200, timeout=3.0)
+# TODO detect Raspberry Pi 3
+#port = serial.Serial("/dev/ttyS0", baudrate=115200, timeout=3.0)
 
 camera = picamera.PiCamera()
 camera.resolution = (w, h)
 camera.framerate = fps
 camera.hflip = hor_flip
 camera.vfilp = ver_flip
+camera.led = False
 
 # TODO send something useful
 # cmd = "s60\n"
