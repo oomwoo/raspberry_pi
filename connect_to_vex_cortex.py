@@ -19,7 +19,7 @@
 import serial, time, sys, getopt, picamera, glob, re, subprocess
 
 debug = False
-fps = 90
+fps = 30
 w = 320
 h = 240
 quality = 23
@@ -151,6 +151,7 @@ if iso > 0:
 camera.hflip = hor_flip
 camera.vfilp = ver_flip
 camera.led = False
+camera.exposure_mode = 'fixedfps'
 
 # TODO send something useful
 # cmd = "s60\n"

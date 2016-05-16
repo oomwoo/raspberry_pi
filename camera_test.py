@@ -12,12 +12,13 @@ except:
     exit()
 
 camera.resolution = (320, 240)
-camera.framerate = 90
+camera.framerate = 30
 #camera.hflip = True
 #camera.vfilp = True
 quality = 23
 bitrate = 0
 camera.iso = 800
+camera.exposure_mode = 'fixedfps'
 
 file_name = "video.h264"
 seconds_to_record = 5
