@@ -16,7 +16,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License <http://www.gnu.org/licenses/> for details.
 
-import serial, time, sys, getopt, picamera, glob, re
+import serial, time, sys, getopt, picamera, glob, re, subprocess
 
 debug = False
 fps = 90
@@ -42,9 +42,11 @@ def usage():
     print "  -f 90: video FPS, 0 for camera default"
     print "  -q 23: quality to record video, 1..40"
     print "  -b 0: bitrate e.g. 15000000, 0 for unlimited"
-    print "  -i 800: ISO 100 | 200 | 400 | 800, 0 default"
+    print "  -i 800: ISO 0 | 100 | 200 | 400 | 800, 0 for camera default"
     print "  -m: horizontal mirror"
     print "  -v: vertical mirror"
+    print "  -s: shut down system on exit (must run as super user)"
+    print "  -r 2: Raspberry Pi board version 2 | 3"
     print "  -?: print usage"
 
 def get_file_max_idx(prefix, file_ext):
@@ -97,7 +99,9 @@ def debug_print(s):
         print(s)
 
 
-opts, args = getopt.getopt(sys.argv[1:], "p:l:w:h:f:q:b:i:?d")
+opts, args = getopt.getopt(sys.argv[1:], "p:l:w:h:f:q:b:i:r:?ds")
+shutdown_on_exit = False
+rpi_hw_version = 2
 
 for opt, arg in opts:
     if opt == '-d':
@@ -122,14 +126,21 @@ for opt, arg in opts:
         hor_flip = Not(hor_flip)
     elif opt == '-v':
         ver_flip = Not(ver_flip)
+    elif opt == '-r':
+        rpi_hw_version = int(arg)
     elif opt == '-?':
         usage()
         sys.exit(2)
 
-# Raspberry Pi 2 Model B
-port = serial.Serial("/dev/ttyAMA0", baudrate=115200, timeout=3.0)
-# TODO detect Raspberry Pi 3
-#port = serial.Serial("/dev/ttyS0", baudrate=115200, timeout=3.0)
+if rpi_hw_version == 2:
+    tty_name = "/dev/ttyAMA0"
+elif rpi_hw_version == 3:
+    tty_name = "/dev/ttyS0"
+else:
+    print "Unsupported Raspberry Pi board version " + str(rpi_hw_version)
+    exit()
+
+port = serial.Serial(tty_name, baudrate=115200, timeout=3.0)
 
 camera = picamera.PiCamera()
 camera.resolution = (w, h)
