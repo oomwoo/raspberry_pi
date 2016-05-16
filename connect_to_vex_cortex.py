@@ -19,17 +19,18 @@
 import serial, time, sys, getopt, picamera, glob, re
 
 debug = False
-fps = 10
+fps = 90
 w = 320
 h = 240
 quality = 23
 bitrate = 0
 file_name_prefix = "rec"
-hor_flip = True
-ver_flip = True
+hor_flip = False
+ver_flip = False
 video_file_ext = ".h264"
 log_file_ext = ".txt"
 log_file = []
+iso = 800
 
 def usage():
     print "python connect_to_vex_cortex.py"
@@ -38,9 +39,10 @@ def usage():
     print "  -d: display received commands for debug"
     print "  -w 320: video width"
     print "  -h 240: video height"
-    print "  -f 10: video FPS, 0 for camera default"
+    print "  -f 90: video FPS, 0 for camera default"
     print "  -q 23: quality to record video, 1..40"
     print "  -b 0: bitrate e.g. 15000000, 0 for unlimited"
+    print "  -i 800: ISO 100 | 200 | 400 | 800, 0 default"
     print "  -m: horizontal mirror"
     print "  -v: vertical mirror"
     print "  -?: print usage"
@@ -95,7 +97,7 @@ def debug_print(s):
         print(s)
 
 
-opts, args = getopt.getopt(sys.argv[1:], "p:l:w:h:f:q:b:?d")
+opts, args = getopt.getopt(sys.argv[1:], "p:l:w:h:f:q:b:i:?d")
 
 for opt, arg in opts:
     if opt == '-d':
@@ -112,6 +114,8 @@ for opt, arg in opts:
         quality = int(arg)
     elif opt == '-b':
         bitrate = int(arg)
+    elif opt == '-i':
+        fps = int(arg)
     elif opt == '-p':
         file_name_prefix = arg
     elif opt == '-m':
@@ -131,6 +135,8 @@ camera = picamera.PiCamera()
 camera.resolution = (w, h)
 if fps > 0:
     camera.framerate = fps
+if iso > 0:
+    camera.iso = iso
 camera.hflip = hor_flip
 camera.vfilp = ver_flip
 camera.led = False

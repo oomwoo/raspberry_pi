@@ -12,11 +12,12 @@ except:
     exit()
 
 camera.resolution = (320, 240)
-camera.framerate = 10
+camera.framerate = 90
 #camera.hflip = True
 #camera.vfilp = True
 quality = 23
 bitrate = 0
+camera.iso = 800
 
 file_name = "video.h264"
 seconds_to_record = 5
@@ -26,6 +27,7 @@ print "Recording for " + str(seconds_to_record) + " seconds into " + file_name
 print "Camera resolution = " + repr(camera.resolution)
 print "Camera FPS = " + repr(camera.framerate)
 print "Camera quality = " + str(quality)
+print "Camera ISO = " + str(camera.iso)
 if bitrate:
     print "Camera bitrate = " + repr(bitrate)
 else:
