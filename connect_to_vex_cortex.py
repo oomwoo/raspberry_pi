@@ -59,7 +59,7 @@ def start_recording():
         n1 = get_file_max_idx(file_name_prefix, video_file_ext)
         n2 = get_file_max_idx(file_name_prefix, log_file_ext)
         n = max(n1, n2)
-        s = str(n).zfill(8)
+        s = str(n).zfill(5)
         video_file_name = file_name_prefix + s + video_file_ext
         log_file_name = file_name_prefix + s + log_file_ext
         camera.start_recording(video_file_name, quality=quality)
