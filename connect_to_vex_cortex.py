@@ -19,7 +19,7 @@
 import serial, time, sys, getopt, picamera, glob, re, subprocess
 
 debug = False
-fps = 30
+fps = 90
 w = 320
 h = 240
 quality = 23
@@ -30,19 +30,21 @@ ver_flip = False
 video_file_ext = ".h264"
 log_file_ext = ".txt"
 log_file = []
-iso = 800
+iso = 0
+shutdown_on_exit = False
+rpi_hw_version = 2
 
 def usage():
     print "python connect_to_vex_cortex.py"
     print "  Raspberry Pi records video, commands from VEX Cortex 2.0"
-    print "  -p rec: file name prefix"
+    print "  -p " + file_name_prefix + ": file name prefix"
     print "  -d: display received commands for debug"
-    print "  -w 320: video width"
-    print "  -h 240: video height"
-    print "  -f 90: video FPS, 0 for camera default"
-    print "  -q 23: quality to record video, 1..40"
-    print "  -b 0: bitrate e.g. 15000000, 0 for unlimited"
-    print "  -i 800: ISO 0 | 100 | 200 | 400 | 800, 0 for camera default"
+    print "  -w " + str(w) + ": video width"
+    print "  -h " + str(h) + ": video height"
+    print "  -f " + str(fps) + ": video FPS, 0 for camera default"
+    print "  -q " + str(quality) + ": quality to record video, 1..40"
+    print "  -b " + str(bitrate) + ": bitrate e.g. 15000000, 0 for unlimited"
+    print "  -i " + str(iso) + ": ISO 0 | 100 ... 800, see picamera doc, 0 for camera default"
     print "  -m: horizontal mirror"
     print "  -v: vertical mirror"
     print "  -s: shut down system on exit (must run as super user)"
@@ -100,8 +102,6 @@ def debug_print(s):
 
 
 opts, args = getopt.getopt(sys.argv[1:], "p:l:w:h:f:q:b:i:r:?ds")
-shutdown_on_exit = False
-rpi_hw_version = 2
 
 for opt, arg in opts:
     if opt == '-d':
