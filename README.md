@@ -9,3 +9,5 @@ Do-it-yourself basic, yet fully autonomous robot
 Operate a VEX EDR robot manually and autonomously. This robot's base and drive is built from VEX components, uses VEX Cortex (ARM-based) CPU and a couple of motors. The Cortex must be connected to a properly-configured Raspberry Pi over serial UART link.
 
 This repository contains files for Raspberry Pi. For VEX and CNN training code, see my other repositories under https://github.com/oomwoo/
+
+[Work in progress 2016 June]
