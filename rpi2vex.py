@@ -19,8 +19,24 @@
 import serial, time, sys, getopt, picamera, glob, re, subprocess, os
 import threading
 import picamera.array
+import numpy as np
+from PIL import Image
+from neon.util.argparser import NeonArgparser
+from neon.backends import gen_backend
+from neon.layers import Affine, Conv, Pooling, GeneralizedCost
+from neon.models import Model
+from neon.transforms import Rectlin, Softmax
+from neon.initializers import Uniform
+from neon.data.dataiterator import ArrayIterator
 
-debug = False
+
+# Neural network args
+parser = NeonArgparser(__doc__)
+args = parser.parse_args()
+args.batch_size = 1
+
+# Communication and camera args
+debug = True
 fps = 90
 w = 320
 h = 240
@@ -40,22 +56,44 @@ video_file_name = []
 log_file_name = []
 autonomous_thread = []
 
-def usage():
-    print "python connect_to_vex_cortex.py"
-    print "  Raspberry Pi records video, commands from VEX Cortex 2.0"
-    print "  -p " + file_name_prefix + ": file name prefix"
-    print "  -d: display received commands for debug"
-    print "  -w " + str(w) + ": video width"
-    print "  -h " + str(h) + ": video height"
-    print "  -f " + str(fps) + ": video FPS, 0 for camera default"
-    print "  -q " + str(quality) + ": quality to record video, 1..40"
-    print "  -b " + str(bitrate) + ": bitrate e.g. 15000000, 0 for unlimited"
-    print "  -i " + str(iso) + ": ISO 0 | 100 ... 800, see picamera doc, 0 for camera default"
-    print "  -m: horizontal mirror"
-    print "  -v: vertical mirror"
-    print "  -s: shut down system on exit (must run as super user)"
-    print "  -r 2: Raspberry Pi board version 2 | 3"
-    print "  -?: print usage"
+# CNN setup
+l = 64
+W = 64
+H = 64
+param_file_name = "trained_bot_model.prm"
+nclass = 4
+be = gen_backend(backend='cpu', batch_size=1)    # NN backend
+init_uni = Uniform(low=-0.1, high=0.1)           # Unnecessary NN weight initialization
+bn = True                                        # enable NN batch normalization
+layers = [Conv((5, 5, 16), init=init_uni, activation=Rectlin(), batch_norm=bn),
+          Pooling((2, 2)),
+          Conv((5, 5, 32), init=init_uni, activation=Rectlin(), batch_norm=bn),
+          Pooling((2, 2)),
+          Affine(nout=100, init=init_uni, activation=Rectlin(), batch_norm=bn),
+          Affine(nout=4, init=init_uni, activation=Softmax())]
+#model = Model(param_file_name)
+model = Model(layers=layers)
+model.load_params(param_file_name, load_states=False)
+L = W*H*3
+class_names = ["forward", "left", "right", "backward"]    # from ROBOT-C bot.c
+size = H, W
+
+#def usage():
+#    print "python connect_to_vex_cortex.py"
+#    print "  Raspberry Pi records video, commands from VEX Cortex 2.0"
+#    print "  -p " + file_name_prefix + ": file name prefix"
+#    print "  -d: display received commands for debug"
+#    print "  -w " + str(w) + ": video width"
+#    print "  -h " + str(h) + ": video height"
+#    print "  -f " + str(fps) + ": video FPS, 0 for camera default"
+#    print "  -q " + str(quality) + ": quality to record video, 1..40"
+#    print "  -b " + str(bitrate) + ": bitrate e.g. 15000000, 0 for unlimited"
+#    print "  -i " + str(iso) + ": ISO 0 | 100 ... 800, see picamera doc, 0 for camera default"
+#    print "  -m: horizontal mirror"
+#    print "  -v: vertical mirror"
+#    print "  -s: shut down system on exit (must run as super user)"
+#    print "  -r 2: Raspberry Pi board version 2 | 3"
+#    print "  -?: print usage"
 
 
 class AutonomousThread (threading.Thread):
@@ -69,14 +107,34 @@ class AutonomousThread (threading.Thread):
             if not autonomous:
                 debug_print("Exiting autonomous thread")
                 break
-            send_cmd(0)
-            time.sleep(2)            
-            send_cmd(1)
-            time.sleep(2)
-            send_cmd(2)
-            time.sleep(2)
-            send_cmd(3)
-            time.sleep(2)
+            # debug Tx
+            # send_cmd(0)
+            # time.sleep(2)            
+            # send_cmd(1)
+            # time.sleep(2)
+            # send_cmd(2)
+            # time.sleep(2)
+            # send_cmd(3)
+            # time.sleep(2)
+
+            # Grab a still frame
+            stream = picamera.array.PiRGBArray(camera)
+            camera.capture(stream, 'rgb', use_video_port=True)
+            debug_print("Grabbed a still frame")
+            image = Image.fromarray(stream.array)
+            image = image.resize(size, Image.ANTIALIAS)
+            image = np.asarray(image, dtype=np.float32)
+
+            # Run neural network
+            start_time = time.time()
+            x_new = np.zeros((1, L), dtype=np.float32)
+            x_new[0] = image.reshape(1, L) # / 255
+            inference_set = ArrayIterator(x_new, None, nclass=nclass, lshape=(3, H, W))
+            out = model.get_outputs(inference_set)
+            debug_print("--- %s seconds per decision --- " % (time.time() - start_time))
+            decision = out[0].argmax()
+            debug_print(class_names[decision])
+            send_cmd(decision)
 
 
 def get_file_max_idx(prefix, file_ext):
@@ -169,43 +227,42 @@ def decide_what_to_do():
     return "A00"
 
 
-opts, args = getopt.getopt(sys.argv[1:], "p:l:w:h:f:q:b:i:r:?ds")
-
-for opt, arg in opts:
-    if opt == '-d':
-        debug = True
-    elif opt == '-l':
-        log_file_name = arg
-    elif opt == '-w':
-        w = int(arg)
-    elif opt == '-h':
-        h = int(arg)
-    elif opt == '-f':
-        fps = int(arg)
-    elif opt == '-q':
-        quality = int(arg)
-    elif opt == '-b':
-        bitrate = int(arg)
-    elif opt == '-i':
-        fps = int(arg)
-    elif opt == '-p':
-        file_name_prefix = arg
-    elif opt == '-m':
-        hor_flip = Not(hor_flip)
-    elif opt == '-v':
-        ver_flip = Not(ver_flip)
-    elif opt == '-r':
-        rpi_hw_version = int(arg)
-    elif opt == '-?':
-        usage()
-        sys.exit(2)
+#opts, args = getopt.getopt(sys.argv[1:], "p:l:w:h:f:q:b:i:r:?ds")
+#for opt, arg in opts:
+#    if opt == '-d':
+#        debug = True
+#    elif opt == '-l':
+#        log_file_name = arg
+#    elif opt == '-w':
+#        w = int(arg)
+#    elif opt == '-h':
+#        h = int(arg)
+#    elif opt == '-f':
+#        fps = int(arg)
+#    elif opt == '-q':
+#        quality = int(arg)
+#    elif opt == '-b':
+#        bitrate = int(arg)
+#    elif opt == '-i':
+#        fps = int(arg)
+#    elif opt == '-p':
+#        file_name_prefix = arg
+#    elif opt == '-m':
+#        hor_flip = Not(hor_flip)
+#    elif opt == '-v':
+#        ver_flip = Not(ver_flip)
+#    elif opt == '-r':
+#        rpi_hw_version = int(arg)
+#    elif opt == '-?':
+#        usage()
+#        sys.exit(2)
 
 if rpi_hw_version == 2:
     tty_name = "/dev/ttyAMA0"
 #elif rpi_hw_version == 3:
 #    tty_name = "/dev/ttyS0"
 else:
-    print "Unsupported Raspberry Pi board version " + str(rpi_hw_version)
+    print "Unsupported Raspberry Pi board version " + str(rpi_hw_version) + " Only rpi v2 is supported"
     exit()
 
 port = serial.Serial(tty_name, baudrate=115200, timeout=3.0)
@@ -220,9 +277,6 @@ camera.hflip = hor_flip
 camera.vfilp = ver_flip
 camera.led = False
 camera.exposure_mode = 'fixedfps'
-
-# TODO send something useful
-# cmd = "s60\n"
 
 while True:
     rcv = port.readline()

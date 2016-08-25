@@ -31,6 +31,7 @@ print "Camera FPS = " + repr(camera.framerate)
 print "Camera quality = " + str(quality)
 print "Camera ISO = " + str(camera.iso)
 print "Camera exposure mode = " + camera.exposure_mode
+print "Camera meter mode = " + camera.meter_mode
 if bitrate:
     print "Camera bitrate = " + repr(bitrate)
 else:
