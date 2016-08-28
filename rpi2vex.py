@@ -38,8 +38,8 @@ args.batch_size = 1
 # Communication and camera args
 debug = True
 fps = 90
-w = 320
-h = 240
+w = 160
+h = 120
 quality = 23
 bitrate = 0
 file_name_prefix = "rec"
@@ -57,25 +57,25 @@ log_file_name = []
 autonomous_thread = []
 
 # CNN setup
-l = 64
-W = 64
-H = 64
-param_file_name = "trained_bot_model.prm"
-nclass = 4
+W = 32
+H = W
+param_file_name = "model\trained_bot_model_32c5516p22c3332p22a50e30_0.1err.prm"
+# param_file_name = "model\trained_bot_model.prm"
+class_names = ["forward", "left", "right", "backward"]    # from ROBOT-C bot.c
+nclass = len(class_names)
 be = gen_backend(backend='cpu', batch_size=1)    # NN backend
 init_uni = Uniform(low=-0.1, high=0.1)           # Unnecessary NN weight initialization
 bn = True                                        # enable NN batch normalization
 layers = [Conv((5, 5, 16), init=init_uni, activation=Rectlin(), batch_norm=bn),
           Pooling((2, 2)),
-          Conv((5, 5, 32), init=init_uni, activation=Rectlin(), batch_norm=bn),
+          Conv((3, 3, 32), init=init_uni, activation=Rectlin(), batch_norm=bn),
           Pooling((2, 2)),
-          Affine(nout=100, init=init_uni, activation=Rectlin(), batch_norm=bn),
-          Affine(nout=4, init=init_uni, activation=Softmax())]
+          Affine(nout=50, init=init_uni, activation=Rectlin(), batch_norm=bn),
+          Affine(nout=nclass, init=init_uni, activation=Softmax())]
 #model = Model(param_file_name)
 model = Model(layers=layers)
 model.load_params(param_file_name, load_states=False)
 L = W*H*3
-class_names = ["forward", "left", "right", "backward"]    # from ROBOT-C bot.c
 size = H, W
 
 #def usage():
@@ -103,6 +103,7 @@ class AutonomousThread (threading.Thread):
         debug_print("Autonomous thread init")
         # TODO
     def run(self):
+        cnt = 0
         while True:
             if not autonomous:
                 debug_print("Exiting autonomous thread")
@@ -120,13 +121,17 @@ class AutonomousThread (threading.Thread):
             # Grab a still frame
             stream = picamera.array.PiRGBArray(camera)
             camera.capture(stream, 'rgb', use_video_port=True)
+
+            start_time = time.time()
             debug_print("Grabbed a still frame")
             image = Image.fromarray(stream.array)
             image = image.resize(size, Image.ANTIALIAS)
+            if (debug):
+                image.save("debug\capture" + str(cnt) + ".png", "PNG")
+                cnt = cnt+1
             image = np.asarray(image, dtype=np.float32)
 
             # Run neural network
-            start_time = time.time()
             x_new = np.zeros((1, L), dtype=np.float32)
             x_new[0] = image.reshape(1, L) # / 255
             inference_set = ArrayIterator(x_new, None, nclass=nclass, lshape=(3, H, W))
@@ -214,17 +219,17 @@ def send_cmd(cmd_code):
     debug_print("Sent cmd=" + cmd)
 
 
-def decide_what_to_do():
-    # get camera picture
-    stream = picamera.array.PiRGBArray(camera)
-    camera.capture(stream, 'rgb', use_video_port=True)
-    print(stream.array.shape)
-
-    # run neural network
-    
-    # encode command
-    
-    return "A00"
+# def decide_what_to_do():
+#     # get camera picture
+#     stream = picamera.array.PiRGBArray(camera)
+#     camera.capture(stream, 'rgb', use_video_port=True)
+#     print(stream.array.shape)
+#
+#     # run neural network
+#    
+#     # encode command
+#    
+#     return "A00"
 
 
 #opts, args = getopt.getopt(sys.argv[1:], "p:l:w:h:f:q:b:i:r:?ds")
