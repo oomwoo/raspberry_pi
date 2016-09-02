@@ -30,16 +30,24 @@ from neon.initializers import Uniform
 from neon.data.dataiterator import ArrayIterator
 
 
+def show_sample(x):
+    # Input to CNN - this is what neural network "sees"
+    image = x.reshape(3, W, H)
+    image = image[[2, 1, 0], :, :]
+    image = np.transpose(image, (1, 2, 0))
+    image = Image.fromarray(np.uint8(image + 127))
+    image.show()
+
 fps = 90
-w = 320
-h = 240
+w = 160
+h = 120
 W = 32  # CNN input image size
 H = W
 l = W
 home_dir = os.path.expanduser("~")
 param_file_name = home_dir + "/ubuntu/model/trained_bot_model_32x32.prm"
-classes = ["forward", "left", "right", "backward"]  # from ROBOT-C bot.c
-nclasses = len(classes)
+class_names = ["forward", "left", "right", "backward"]  # from ROBOT-C bot.c
+nclasses = len(class_names)
 
 # Set up camera
 camera = picamera.PiCamera()
@@ -51,9 +59,9 @@ camera.exposure_mode = 'fixedfps'
 stream = picamera.array.PiRGBArray(camera)
 camera.capture(stream, 'rgb', use_video_port=True)
 camera.close()
-print "Captured image " + stream.array.shape
+print "Captured image " + repr(stream.array.shape)
 image = Image.fromarray(stream.array)
-# image.show()
+image.show()
 
 # Set up neural network
 be = gen_backend(backend='cpu', batch_size=1)    # NN backend
@@ -72,12 +80,13 @@ start_time = time.time()
 
 # Convert image to sample
 size = H, W
-image = image.resize(size)  # , Image.ANTIALIAS)
+image = image.resize(size)
 r, g, b = image.split()
 image = Image.merge("RGB", (b, g, r))
 image = np.asarray(image, dtype=np.float32)
 image = np.transpose(image, (2, 0, 1))
-x_new = image.reshape(1, L) - 127
+x_new = image.reshape(1, 3*W*H) - 127
+show_sample(x_new)
 
 # Run neural network
 inference_set = ArrayIterator(x_new, None, nclass=nclasses, lshape=(3, H, W))
